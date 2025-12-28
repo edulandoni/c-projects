@@ -1,8 +1,20 @@
+#define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 
 #define GRID_SIZE 15
+
+void sleep_ms(long ms)
+{
+  struct timespec ts;
+  ts.tv_sec=ms/1000;
+  ts.tv_nsec=(ms%1000)*1000000L;
+
+  nanosleep(&ts, NULL);
+}
+
+
 
 int grid[GRID_SIZE][GRID_SIZE];
 
@@ -88,6 +100,26 @@ void relax(void)
   }
 }
 
+
+int relax_step(void)
+{
+    int i, j;
+
+    for (i = 0; i < GRID_SIZE; i++) {
+        for (j = 0; j < GRID_SIZE; j++) {
+            if (grid[i][j] >= 4) {
+                topple_cell(i, j);
+                return 1;
+            }
+        }
+    }
+
+    return 0;
+}
+
+
+
+
 void add_random_grain(void)
 {
   int row;
@@ -98,6 +130,11 @@ void add_random_grain(void)
   add_grain(row,col);
 }
 
+void simulate_step(void)
+{
+    add_random_grain();
+    relax();
+}
 
 int main(void)
 {
@@ -105,10 +142,19 @@ int main(void)
 
   init_grid();
   
+  printf("\033[2J"); // clean
+  printf("\033[H"); // move cursor 
+  
   while (1){
     add_random_grain();
-    relax();
+    while(relax_step()){
+    printf("\033[H"); // move cursor 
     print_grid();
+    sleep_ms(50);
+    }
+    printf("\033[H");
+    print_grid();
+    sleep_ms(10);
   }
   return 0;
 }

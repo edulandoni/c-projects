@@ -3,7 +3,21 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define GRID_SIZE 15
+#define GRID_SIZE 21
+
+#define ANSI_RESET   "\033[0m"
+#define ANSI_GRAY    "\033[90m"
+#define ANSI_BLUE    "\033[34m"
+#define ANSI_GREEN   "\033[32m"
+#define ANSI_YELLOW  "\033[33m"
+#define ANSI_MAGENTA "\033[35m"
+#define ANSI_RED     "\033[31m"
+
+int avalanche_size = 0;
+int avalanche_duration = 0;
+int active_row = -1;
+int active_col = -1;
+int grid[GRID_SIZE][GRID_SIZE];
 
 void sleep_ms(long ms)
 {
@@ -13,10 +27,6 @@ void sleep_ms(long ms)
 
   nanosleep(&ts, NULL);
 }
-
-
-
-int grid[GRID_SIZE][GRID_SIZE];
 
 void init_grid(void)
 {
@@ -32,10 +42,23 @@ void init_grid(void)
 void print_grid(void)
 {
   int i, j;
+  const char *color;
 
   for(i=0; i<GRID_SIZE; i++){
     for (j=0; j<GRID_SIZE; j++){
-      printf("%d ", grid[i][j]);
+      if (i == active_row && j == active_col){
+        color = ANSI_RED;
+      } else {
+        switch (grid[i][j]) {
+          case 0: color = ANSI_GRAY; break;
+          case 1: color = ANSI_BLUE; break;
+          case 2: color = ANSI_GREEN; break;
+          case 3: color = ANSI_YELLOW; break;
+          default: color = ANSI_MAGENTA; break;
+        }
+      }
+
+      printf("%s%2d%s ", color, grid[i][j], ANSI_RESET);
     }
     printf("\n");
   }
@@ -71,6 +94,9 @@ void topple_cell(int row, int col)
   if (grid[row][col]<4) {
     return;
   }
+
+  avalanche_size++;
+
   grid[row][col] -= 4;
   if (row > 0){
     grid[row-1][col]++;
@@ -100,7 +126,6 @@ void relax(void)
   }
 }
 
-
 int relax_step(void)
 {
     int i, j;
@@ -108,6 +133,8 @@ int relax_step(void)
     for (i = 0; i < GRID_SIZE; i++) {
         for (j = 0; j < GRID_SIZE; j++) {
             if (grid[i][j] >= 4) {
+                active_row = i;
+                active_col = j;
                 topple_cell(i, j);
                 return 1;
             }
@@ -116,9 +143,6 @@ int relax_step(void)
 
     return 0;
 }
-
-
-
 
 void add_random_grain(void)
 {
@@ -136,6 +160,13 @@ void simulate_step(void)
     relax();
 }
 
+void render_stats(void)
+{
+  printf("\033[%d;1H", GRID_SIZE + 2);
+  printf("Avalanche size: %d | Duration: %d     ",
+         avalanche_size, avalanche_duration);
+}
+
 int main(void)
 {
   srand(time(NULL));
@@ -146,15 +177,26 @@ int main(void)
   printf("\033[H"); // move cursor 
   
   while (1){
+    avalanche_size = 0;
+    avalanche_duration = 0;
+
     add_random_grain();
+
     while(relax_step()){
-    printf("\033[H"); // move cursor 
-    print_grid();
-    sleep_ms(50);
+      avalanche_duration++;
+      printf("\033[H"); // move cursor 
+      print_grid();
+      render_stats();
+      sleep_ms(50);
     }
+
+    active_row = -1;
+    active_col = -1;
+
     printf("\033[H");
     print_grid();
-    sleep_ms(10);
+    render_stats();
+    sleep_ms(5);
   }
   return 0;
 }
